@@ -33,7 +33,7 @@ prefixes = []
 cmd_to_url = ["转链接", "看链接", "提取地址", "url"]
 
 # 【转媒体】指令：将 URL 解析为图片/视频发送
-# 触发方式：指令 + URL
+# 触发方式：指令 + URL，或 指令 + 引用包含URL的消息
 cmd_to_media = ["转图片", "转视频", "预览", "看看"]
 "#;
 
@@ -127,6 +127,44 @@ mod utils {
         let re = URL_REGEX
             .get_or_init(|| Regex::new(r"https?://[^\s\u4e00-\u9fa5]+").expect("Invalid Regex"));
         re.find(text).map(|m| m.as_str().to_string())
+    }
+
+    /// 从引用消息中获取纯文本内容
+    pub async fn get_reply_text(
+        event: &Arc<MsgEvent>,
+        bot: &Arc<kovi::RuntimeBot>,
+    ) -> Option<String> {
+        let reply_id = event.message.iter().find_map(|seg| {
+            if seg.type_ == "reply" {
+                seg.data.get("id").and_then(|v| v.as_str())
+            } else {
+                None
+            }
+        })?;
+
+        if let Ok(reply_id_int) = reply_id.parse::<i32>()
+            && let Ok(res) = bot.get_msg(reply_id_int).await
+            && let Some(segments) = res.data.get("message").and_then(|v| v.as_array())
+        {
+            let mut text_content = String::new();
+            for seg in segments {
+                if let Some(type_) = seg.get("type").and_then(|t| t.as_str()) {
+                    if type_ == "text" {
+                        if let Some(t) = seg
+                            .get("data")
+                            .and_then(|d| d.get("text"))
+                            .and_then(|s| s.as_str())
+                        {
+                            text_content.push_str(t);
+                        }
+                    }
+                }
+            }
+            if !text_content.is_empty() {
+                return Some(text_content);
+            }
+        }
+        None
     }
 
     /// 从消息段中获取图片或视频的 URL
@@ -258,11 +296,21 @@ async fn main() {
             // ----------------------------------------------------
             let (is_match, args, raw_cmd) = utils::parse_command(text, &prefixes, &cmd_to_media);
             if is_match {
-                let url = match utils::extract_url(&args) {
+                // 1. 尝试从指令参数中提取 URL
+                let mut target_url = utils::extract_url(&args);
+
+                // 2. 如果参数没有 URL，尝试从引用消息的文本中提取
+                if target_url.is_none() {
+                    if let Some(reply_text) = utils::get_reply_text(&event, &bot).await {
+                        target_url = utils::extract_url(&reply_text);
+                    }
+                }
+
+                let url = match target_url {
                     Some(u) => u,
                     None => {
                         event.reply(
-                            "⚠️ 请在指令后附带 HTTP 链接。\n示例：转图片 https://example.com/1.png",
+                            "⚠️ 未检测到有效链接。\n请在指令后附带 URL，或【引用】一条包含 URL 的消息。",
                         );
                         return;
                     }
@@ -278,7 +326,6 @@ async fn main() {
 
                 if is_video_cmd || is_video_ext {
                     // 构建视频消息
-                    // OneBot 协议中，直接给 url/file 字段即可，框架会自动下载或转发
                     let mut vec = Vec::new();
                     let segment = kovi::bot::message::Segment::new(
                         "video",
@@ -288,9 +335,6 @@ async fn main() {
                     );
                     vec.push(segment);
                     let video_msg = kovi::bot::message::Message::from(vec);
-
-                    // 先发个提示，因为视频加载可能慢
-                    // event.reply("🎬 正在解析视频...");
                     event.reply(video_msg);
                 } else {
                     // 默认为图片
