@@ -148,17 +148,15 @@ mod utils {
         {
             let mut text_content = String::new();
             for seg in segments {
-                if let Some(type_) = seg.get("type").and_then(|t| t.as_str()) {
-                    if type_ == "text" {
-                        if let Some(t) = seg
+                if let Some(type_) = seg.get("type").and_then(|t| t.as_str())
+                    && type_ == "text"
+                        && let Some(t) = seg
                             .get("data")
                             .and_then(|d| d.get("text"))
                             .and_then(|s| s.as_str())
                         {
                             text_content.push_str(t);
                         }
-                    }
-                }
             }
             if !text_content.is_empty() {
                 return Some(text_content);
@@ -300,11 +298,10 @@ async fn main() {
                 let mut target_url = utils::extract_url(&args);
 
                 // 2. 如果参数没有 URL，尝试从引用消息的文本中提取
-                if target_url.is_none() {
-                    if let Some(reply_text) = utils::get_reply_text(&event, &bot).await {
+                if target_url.is_none()
+                    && let Some(reply_text) = utils::get_reply_text(&event, &bot).await {
                         target_url = utils::extract_url(&reply_text);
                     }
-                }
 
                 let url = match target_url {
                     Some(u) => u,
