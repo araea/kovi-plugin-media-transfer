@@ -1,0 +1,19 @@
+[package]
+name = "kovi-plugin-media-transfer"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+authors = ["Nawyjx <3373167460@qq.com>"]
+description = "Kovi 的媒体链接互转插件，支持提取图片/视频直链，以及将 URL 转换为媒体消息发送。"
+categories = ["multimedia", "web-programming"]
+repository = "https://github.com/araea/kovi-plugin-media-transfer"
+keywords = ["kovi", "kovi-plugin", "media", "onebot", "url"]
+
+[dependencies]
+kovi = ">= 0.12"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+regex = "1"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
