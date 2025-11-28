@@ -34,7 +34,7 @@ cmd_to_url = ["转链接", "看链接", "提取地址", "url"]
 
 # 【转媒体】指令：将 URL 解析为图片/视频发送
 # 触发方式：指令 + URL，或 指令 + 引用包含URL的消息
-cmd_to_media = ["转图片", "转视频", "预览", "看看"]
+cmd_to_media = ["转图片", "转视频", "预览"]
 "#;
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -150,13 +150,13 @@ mod utils {
             for seg in segments {
                 if let Some(type_) = seg.get("type").and_then(|t| t.as_str())
                     && type_ == "text"
-                        && let Some(t) = seg
-                            .get("data")
-                            .and_then(|d| d.get("text"))
-                            .and_then(|s| s.as_str())
-                        {
-                            text_content.push_str(t);
-                        }
+                    && let Some(t) = seg
+                        .get("data")
+                        .and_then(|d| d.get("text"))
+                        .and_then(|s| s.as_str())
+                {
+                    text_content.push_str(t);
+                }
             }
             if !text_content.is_empty() {
                 return Some(text_content);
@@ -299,9 +299,10 @@ async fn main() {
 
                 // 2. 如果参数没有 URL，尝试从引用消息的文本中提取
                 if target_url.is_none()
-                    && let Some(reply_text) = utils::get_reply_text(&event, &bot).await {
-                        target_url = utils::extract_url(&reply_text);
-                    }
+                    && let Some(reply_text) = utils::get_reply_text(&event, &bot).await
+                {
+                    target_url = utils::extract_url(&reply_text);
+                }
 
                 let url = match target_url {
                     Some(u) => u,
